@@ -1,0 +1,32 @@
+name: KW Volume Daily
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate secrets
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GSPREAD_SERVICE_JSON: ${{ secrets.GSPREAD_SERVICE_JSON }}
+        run: |
+          python - << 'PY'
+          import os, sys, json
+          miss=[k for k in ["SHEET_ID","GSPREAD_SERVICE_JSON"] if not os.getenv(k)]
+          if miss:
+              print("Missing secrets:", ", ".join(miss)); sys.exit(1)
+          try: json.loads(os.environ["GSPREAD_SERVICE_JSON"]); print("Secrets OK.")
+          except Exception as e: print("Invalid GSPREAD_SERVICE_JSON:", e); sys.exit(1)
+          PY
+      - run: pip install -r requirements.txt
+      - name: Run test script
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          GSPREAD_SERVICE_JSON: ${{ secrets.GSPREAD_SERVICE_JSON }}
+        run: python main.py
