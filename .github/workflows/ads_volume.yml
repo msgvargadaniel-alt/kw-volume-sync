@@ -1,0 +1,76 @@
+name: KW Ads Volume
+
+on:
+  workflow_dispatch:
+    inputs:
+      LANGUAGE_ID:
+        description: "Language constant ID (1000=SK, 1019=HU, 1003=EN)"
+        required: true
+        default: "1000"
+      LOCATION_IDS:
+        description: "Comma-separated geo IDs (2392=SK, 2012=HU)"
+        required: true
+        default: "2392"
+      NETWORK:
+        description: "GOOGLE_SEARCH or GOOGLE_SEARCH_AND_PARTNERS"
+        required: true
+        default: "GOOGLE_SEARCH"
+  schedule:
+    - cron: "0 6 * * *"  # 06:00 UTC ≈ 08:00 Europe/Budapest
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "google-ads==27.0.0" "pandas<2.3" gspread google-auth
+
+      # uložíme Service Account JSON do súboru
+      - name: Write Sheets SA creds
+        run: |
+          echo '${{ secrets.SHEETS_SA_JSON }}' > sa.json
+
+      # debug: ukážeme SA email, aby si vedel, komu zdieľať sheet
+      - name: Show SA email (debug)
+        run: |
+          python - << 'PY'
+import json
+j = json.load(open('sa.json'))
+print("SERVICE ACCOUNT EMAIL:", j.get('client_email'))
+PY
+
+      - name: Run Ads volume
+        env:
+          ADS_DEVELOPER_TOKEN: ${{ secrets.ADS_DEVELOPER_TOKEN }}
+          ADS_CLIENT_ID: ${{ secrets.ADS_CLIENT_ID }}
+          ADS_CLIENT_SECRET: ${{ secrets.ADS_CLIENT_SECRET }}
+          ADS_REFRESH_TOKEN: ${{ secrets.ADS_REFRESH_TOKEN }}
+          ADS_CLIENT_CUSTOMER_ID: ${{ secrets.ADS_CLIENT_CUSTOMER_ID }}
+          LANGUAGE_ID: ${{ github.event.inputs.LANGUAGE_ID || '1000' }}
+          LOCATION_IDS: ${{ github.event.inputs.LOCATION_IDS || '2392' }}
+          NETWORK: ${{ github.event.inputs.NETWORK || 'GOOGLE_SEARCH' }}
+          # Sheets (ak je SHEET_ID, použijeme Sheet; inak keywords.csv)
+          SHEET_ID: ${{ vars.SHEET_ID }}
+          SHEET_TAB: ${{ vars.SHEET_TAB }}
+          SHEET_RANGE: ${{ vars.SHEET_RANGE }}
+        run: |
+          python scripts/main_ads_api.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ads_keyword_metrics
+          path: output/ads_keyword_metrics.csv
