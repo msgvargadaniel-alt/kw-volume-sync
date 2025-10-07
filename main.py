@@ -25,5 +25,4 @@ except gspread.exceptions.WorksheetNotFound:
     ws_out.append_row(["keyword","country","language","avg_monthly_searches","competition","competition_index","low_top_of_page_bid_micros","high_top_of_page_bid_micros","year","month","monthly_searches"])
 
 # testovací zápis
-ws_out.append_row(["_ping","SK","sk",0,"LOW",0,0,0,2025,10,6], value_input_option="RAW")
 print("OK: zapis do 'Metrics' prebehol.")
